@@ -70,3 +70,27 @@ def check_login(pseudo, password, db_mode="local"):
         return row
     return None
 
+# Fonction pour enregistrer un nouvel utilisateur
+# Retourne True si succès, lève ValueError si le pseudo est déjà pris
+def register_user(pseudo, password, color, db_mode="local"):
+    db = get_connection(db_mode)
+    cursor = db.cursor(dictionary=True)
+
+    # Vérifier si le pseudo est déjà utilisé
+    cursor.execute("SELECT id FROM users WHERE pseudo=%s", (pseudo,))
+    if cursor.fetchone():
+        db.close()
+        raise ValueError(f"Le pseudo '{pseudo}' est déjà pris.")
+
+    # Hasher le mot de passe avec bcrypt
+    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+
+    # Insérer le nouvel utilisateur (level=1 par défaut = utilisateur standard)
+    cursor.execute(
+        "INSERT INTO users (pseudo, hash, color, level) VALUES (%s, %s, %s, %s)",
+        (pseudo, hashed, color, 1)
+    )
+    db.commit()
+    new_id = cursor.lastrowid
+    db.close()
+    return new_id  # retourne l'id du nouvel utilisateur créé

@@ -24,4 +24,6 @@ class Session:
     # Méthode pour le logout de l'utilisateur
     @classmethod 
     def logout(cls):
-        None # à implémenter
+        cls.pseudo = None
+        cls.level = None
+        cls.id = None

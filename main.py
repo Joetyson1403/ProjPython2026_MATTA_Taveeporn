@@ -7,7 +7,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox, simpledialog
-from login import show_login
+from login import show_login, show_register
 from tree_display import display_array
 from model import get_maps, get_nodes_for_map, get_users, get_all_nodes
 from utils.session import Session
@@ -212,9 +212,20 @@ def set_db_mode(mode):
 
 # connexion (appelle une fenêtre de login)
 def login():
-    show_login(root)
+    show_login(root, db_mode)
     if Session.is_authenticated():
-        lbl_user.config(text=f"Connecté en tant que {Session.pseudo}") 
+        lbl_user.config(text=f"Connecté en tant que {Session.pseudo}")
+
+# enregistrement (appelle une fenêtre de register)
+def register():
+    show_register(root, db_mode)
+    if Session.is_authenticated():
+        lbl_user.config(text=f"Connecté en tant que {Session.pseudo}")
+
+# déconnexion
+def logout():
+    Session.logout()
+    lbl_user.config(text="Non connecté")
 
 
 # fenêtre principale
@@ -236,6 +247,9 @@ menubar.add_cascade(label="Afficher", menu=display_menu)
 # Menu Login/Register
 login_menu = tk.Menu(menubar, tearoff=0)
 login_menu.add_command(label="Login", command=login)
+login_menu.add_command(label="Register", command=register)
+login_menu.add_separator()
+login_menu.add_command(label="Logout", command=logout)
 menubar.add_cascade(label="Login/Register", menu=login_menu)
 
 # Menu local/remote
