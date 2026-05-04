@@ -1,7 +1,7 @@
 # prototype d'affichage de mindmap en radial et forum
 # avec possibilité d'éditer les nodes (si auteur) ou d'en ajouter en dessous    
-# JCY pour SI-CA1 (projet Python) - 2025-2026 -v0.1
-# 13 avril 2026
+# Taveeporn Matta SI-CA1 (projet Python) - 2025-2026
+# 04 mai 2026
 # main.py : affichage de la fenêtre principale, gestion de la connexion et des différentes vues (tables + mindmap)
 
 import tkinter as tk
@@ -9,8 +9,9 @@ import tkinter.ttk as ttk
 from tkinter import messagebox, simpledialog
 from login import show_login
 from tree_display import display_array
-from model import get_maps,  get_nodes_for_map
+from model import get_maps, get_nodes_for_map, get_users, get_all_nodes
 from utils.session import Session
+from radial_display import display_mindmap_radial
 import math
 
 # Variable globale pour le mode DB
@@ -24,8 +25,19 @@ def check_auth():
 # affichage des maps 
 def display_maps():
     result = get_maps(db_mode)
-    frm_result.tree = display_array(frm_result, result)
-    frm_result.tree.bind("<Double-1>", on_map_double_click) # double clic pour afficher le mindmap dans right_frame selon le mode sélectionné (tree, radial ou forum)
+    if result:
+        frm_result.tree = display_array(frm_result, result)
+        frm_result.tree.bind("<Double-1>", on_map_double_click) # double clic pour afficher le mindmap dans right_frame selon le mode sélectionné (tree, radial ou forum)
+        
+def display_users():
+    result = get_users(db_mode)
+    if result:
+        frm_result.tree = display_array(frm_result, result)
+
+def display_nodes():
+    result = get_all_nodes(db_mode)
+    if result:
+        frm_result.tree = display_array(frm_result, result)
        
 # traitement de l'affichage d'un mindmap selon le mode sélectionné (tree, radial ou forum)
 def on_map_double_click(event):
@@ -51,6 +63,8 @@ def display_mindmap(map_id):
             display_mindmap_tree(right_frame, nodes)
         elif mode == 'forum':
             display_mindmap_forum(right_frame, nodes)
+        elif mode == 'radial':
+            display_mindmap_radial(right_frame, nodes)
     else:
         tk.Label(right_frame, text="Aucun node pour ce mindmap").pack()
 
@@ -70,11 +84,19 @@ def display_mindmap_tree(frame, nodes):
     style.configure("Right.Treeview", font=("TkDefaultFont", 20), rowheight=35)
     tree.configure(style="Right.Treeview")
 
+    # Configurer les tags de couleur
+    for node in nodes:
+        if "color" in node and node["color"]:
+            tree.tag_configure(node["color"], background=node["color"])
+
     # Fonction récursive pour insérer les nodes
     def insert_nodes(parent, parent_id=None):
         for node in nodes:
             if node['parent_id'] == parent_id:
-                item = tree.insert(parent, 'end', text=node['text'])  # Seulement le text
+                tags = ()
+                if "color" in node and node["color"]:
+                    tags = (node["color"],)
+                item = tree.insert(parent, 'end', text=node['text'], tags=tags)  # Seulement le text
                 insert_nodes(item, node['id'])
 
     insert_nodes('')
@@ -206,7 +228,9 @@ menubar = tk.Menu(root)
 
 # Menu Afficher
 display_menu = tk.Menu(menubar, tearoff=0)
+display_menu.add_command(label="Users", command=display_users)
 display_menu.add_command(label="Maps", command=display_maps)
+display_menu.add_command(label="Nodes", command=display_nodes)
 menubar.add_cascade(label="Afficher", menu=display_menu)
 
 # Menu Login/Register
@@ -261,6 +285,7 @@ frm_options.grid(column=0, row=2, pady=10)
 tk.Label(frm_options, text="Mode d'affichage Mindmap:").pack(anchor='w')
 tk.Radiobutton(frm_options, text="Treeview", variable=display_mode, value='tree', command=refresh_mindmap).pack(anchor='w')
 tk.Radiobutton(frm_options, text="Forum", variable=display_mode, value='forum', command=refresh_mindmap).pack(anchor='w')
+tk.Radiobutton(frm_options, text="Radial", variable=display_mode, value='radial', command=refresh_mindmap).pack(anchor='w')
 
 # frame pour l'affichage des résultats dans left_frame
 frm_result = tk.Frame(left_frame, bg="lightgreen")

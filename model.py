@@ -1,6 +1,6 @@
 # Projet mindmaps : prototype d'affichage de mindmap en radial et forum 
-# JCY pour SI-CA1 (projet Python) - 2025-2026
-# 13 avril 2026
+# Taveeporn Matta SI-CA1 (projet Python) - 2025-2026
+# 04 mai 2026
 # model.py : définition des fonctions pour interagir avec la base de données
 
 import mysql.connector
@@ -41,6 +41,14 @@ def get_nodes_for_map(map_id, db_mode):
     return fetch_all("select nodes.id, parent_id, author_id, text, nodes.level,users.color " \
     "from nodes inner join users on nodes.author_id = users.id " \
     "where map_id=%s", (map_id,), db_mode)
+
+# renvoie la liste des utilisateurs (sans hash)
+def get_users(db_mode):
+    return fetch_all("select id, pseudo, level from users", None, db_mode)
+
+# renvoie la liste de tous les nodes (données partielles)
+def get_all_nodes(db_mode):
+    return fetch_all("select map_id, parent_id, author_id, text, level from nodes", None, db_mode)
 
 # fonctions pour insérer, mettre à jour et supprimer des maps et des nodes
 # fonction pour insérer un node (retourne l'id du node créé)

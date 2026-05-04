@@ -1,6 +1,6 @@
 # Projet mindmaps : prototype d'affichage de mindmap en radial et forum 
-# JCY pour SI-CA1 (projet Python) - 2025-2026
-# 13 avril 2026
+# Taveeporn Matta SI-CA1 (projet Python) - 2025-2026
+# 04 mai 2026
 # tree_display.py : affichage d'un tableau de données dans un TreeView
 
 import tkinter as tk
@@ -51,7 +51,7 @@ def display_array(frame, data):
 
     # colonnes + largeur automatique
     for col in columns:
-        tree.heading(col, text=col)
+        tree.heading(col, text=col, command=lambda c=col: sort_by_column(tree, c, data, columns))
         tree.heading(col, anchor="w") # alignement à gauche
         tree.column(col, width=tkFontMeasure(tree, col, data), stretch=True)
 
@@ -68,6 +68,27 @@ def insert_rows(tree, data, columns):
     for row_dict in data:
         values = [row_dict[col] for col in columns]
         tree.insert("", tk.END, values=values)
+
+
+def sort_by_column(tree, col, data, columns):
+    """Trie les données puis réaffiche le tableau."""
+    # détecter tri ascendant/descendant
+    descending = getattr(tree, "sort_desc_"+col, False)
+    setattr(tree, "sort_desc_"+col, not descending)
+
+    def safe_sort_key(r):
+        val = r[col]
+        if val is None:
+            return (0, "")
+        elif isinstance(val, (int, float)):
+            return (1, val)
+        else:
+            return (2, str(val))
+
+    data.sort(key=safe_sort_key, reverse=descending)
+
+    # réaffichage
+    insert_rows(tree, data, columns)
 
 
 def tkFontMeasure(tree, col, data):

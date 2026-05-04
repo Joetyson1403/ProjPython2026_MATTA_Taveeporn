@@ -1,6 +1,6 @@
 # Projet mindmaps : prototype d'affichage de mindmap en radial et forum 
-# JCY pour SI-CA1 (projet Python) - 2025-2026
-# 13 avril 2026
+# Taveeporn Matta SI-CA1 (projet Python) - 2025-2026
+# 04 mai 2026
 # login.py : affichage de la fenêtre de connexion
 
 import tkinter as tk
