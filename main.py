@@ -9,7 +9,7 @@ import tkinter.ttk as ttk
 from tkinter import messagebox, simpledialog
 from login import show_login, show_register
 from tree_display import display_array
-from model import get_maps, get_nodes_for_map, get_users, get_all_nodes
+from model import get_maps, get_nodes_for_map, get_users, get_all_nodes, update_node, delete_node, insert_node, update_map, delete_map, insert_map
 from utils.session import Session
 from radial_display import display_mindmap_radial
 import math
@@ -29,6 +29,63 @@ def display_maps():
         frm_result.tree = display_array(frm_result, result)
         frm_result.tree.bind("<Double-1>", on_map_double_click) # double clic pour afficher le mindmap dans right_frame selon le mode sélectionné (tree, radial ou forum)
         
+        # Clic droit sur une map
+        def on_map_right_click(event):
+            if not check_auth():
+                return
+            item_id = frm_result.tree.identify_row(event.y)
+            if not item_id:
+                # Si on clique dans le vide, on propose juste d'ajouter une carte
+                menu = tk.Menu(root, tearoff=0)
+                menu.add_command(label="Nouvelle carte", command=insert_map_action)
+                menu.post(event.x_root, event.y_root)
+                return
+            
+            # Récupérer les informations de la carte cliquée
+            item = frm_result.tree.item(item_id)
+            values = item['values']
+            if len(values) < 3:
+                return
+            map_data = {'id': values[0], 'title': str(values[1]), 'author_id': values[2]}
+            
+            menu = tk.Menu(root, tearoff=0)
+            menu.add_command(label="Renommer", command=lambda: edit_map_title(map_data))
+            menu.add_command(label="Supprimer", command=lambda: delete_map_action(map_data))
+            menu.add_command(label="Nouvelle carte", command=insert_map_action)
+            menu.post(event.x_root, event.y_root)
+
+        frm_result.tree.bind("<Button-3>", on_map_right_click)
+
+def edit_map_title(map_data):
+    if Session.id != map_data['author_id']:
+        messagebox.showerror("Erreur", "Vous n'êtes pas l'auteur de cette carte.")
+        return
+    new_title = simpledialog.askstring("Renommer la carte", "Nouveau titre :", initialvalue=map_data['title'])
+    if new_title and new_title.strip():
+        update_map(map_data['id'], new_title.strip(), db_mode)
+        display_maps()
+        
+def delete_map_action(map_data):
+    if Session.id != map_data['author_id']:
+        messagebox.showerror("Erreur", "Vous n'êtes pas l'auteur de cette carte.")
+        return
+    if messagebox.askyesno("Confirmation", f"Voulez-vous vraiment supprimer la carte '{map_data['title']}' et tous ses nœuds ?"):
+        delete_map(map_data['id'], db_mode)
+        display_maps()
+        # Si la carte supprimée était celle affichée, on nettoie
+        global current_map_id
+        if current_map_id == map_data['id']:
+            current_map_id = None
+            for widget in right_frame.winfo_children():
+                widget.destroy()
+
+def insert_map_action():
+    new_title = simpledialog.askstring("Nouvelle carte", "Titre de la carte :")
+    if new_title and new_title.strip():
+        new_map_id = insert_map(new_title.strip(), Session.id, db_mode)
+        # Créer automatiquement le nœud racine de la carte
+        insert_node(new_map_id, None, Session.id, new_title.strip(), 0, db_mode)
+        display_maps()
 def display_users():
     result = get_users(db_mode)
     if result:
@@ -64,7 +121,7 @@ def display_mindmap(map_id):
         elif mode == 'forum':
             display_mindmap_forum(right_frame, nodes)
         elif mode == 'radial':
-            display_mindmap_radial(right_frame, nodes)
+            display_mindmap_radial(right_frame, nodes, edit_node)
     else:
         tk.Label(right_frame, text="Aucun node pour ce mindmap").pack()
 
@@ -89,6 +146,8 @@ def display_mindmap_tree(frame, nodes):
         if "color" in node and node["color"]:
             tree.tag_configure(node["color"], background=node["color"])
 
+    item_to_node = {}
+
     # Fonction récursive pour insérer les nodes
     def insert_nodes(parent, parent_id=None):
         for node in nodes:
@@ -97,9 +156,18 @@ def display_mindmap_tree(frame, nodes):
                 if "color" in node and node["color"]:
                     tags = (node["color"],)
                 item = tree.insert(parent, 'end', text=node['text'], tags=tags)  # Seulement le text
+                item_to_node[item] = node
                 insert_nodes(item, node['id'])
 
     insert_nodes('')
+
+    def on_right_click(event):
+        item_id = tree.identify_row(event.y)
+        if item_id in item_to_node:
+            node = item_to_node[item_id]
+            edit_node(event, node)
+
+    tree.bind("<Button-3>", on_right_click)
 
     # Scrollbars
     vsb = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
@@ -159,9 +227,10 @@ def display_mindmap_forum(frame, nodes):
     def place_forum(node, x, y, width_percent, level=0):
         width = int(canvas_width * width_percent / 100)
         item = create_rounded_rectangle(canvas, x, y, x + width, y + node_height, radius=8, fill='lightblue' if level == 0 else node["color"], outline='black')
-        canvas.create_text(x + width/2, y + node_height/2, text=node['text'][:40], anchor='center', font=("Arial", 12))  # Police augmentée
-        # Binder le clic droit sur le node pour éditer
+        text_item = canvas.create_text(x + width/2, y + node_height/2, text=node['text'][:40], anchor='center', font=("Arial", 12))  # Police augmentée
+        # Binder le clic droit sur le node pour éditer (sur la forme et sur le texte)
         canvas.tag_bind(item, "<Button-3>", lambda e, n=node: edit_node(e, n)) # n contient les infos du node pour l'édition    
+        canvas.tag_bind(text_item, "<Button-3>", lambda e, n=node: edit_node(e, n))
         children = [n for n in nodes if n['parent_id'] == node['id']]
         total_height = node_height + 10  # hauteur du node + marge
         if children:
@@ -179,8 +248,8 @@ def display_mindmap_forum(frame, nodes):
 
 # Cette fonction propose 3 actions sur un node : éditer le texte, supprimer le node ou insérer un nouveau node en dessous
 def edit_node(event, node):
-    #if not check_auth():
-    #    return
+    if not check_auth():
+        return
     menu = tk.Menu(root, tearoff=0)
     menu.add_command(label="Éditer", command=lambda: edit_text(node))
     menu.add_command(label="Supprimer", command=lambda: delete_node_action(node))
@@ -189,15 +258,41 @@ def edit_node(event, node):
 
 # propose d'éditer le texte d'un node (seulement si l'utilisateur est l'auteur du node)
 def edit_text(node):
-    messagebox.showerror("Erreur", "Pas encore implémenté") # à implémenter : vérifier que l'utilisateur est l'auteur du node, puis proposer une fenêtre de saisie pour éditer le texte du node, puis mettre à jour le node dans la base de données et rafraîchir l'affichage du mindmap
+    if not check_auth():
+        messagebox.showerror("Erreur", "Vous devez être connecté pour éditer un nœud.")
+        return
+    if Session.id != node['author_id']:
+        messagebox.showerror("Erreur", "Vous n'êtes pas l'auteur de ce nœud, vous ne pouvez pas l'éditer.")
+        return
+    
+    new_text = simpledialog.askstring("Éditer le nœud", "Nouveau texte :", initialvalue=node['text'])
+    if new_text and new_text.strip():
+        update_node(node['id'], new_text.strip(), db_mode)
+        refresh_mindmap()
 
 # propose de supprimer un node (seulement si l'utilisateur est l'auteur du node)
 def delete_node_action(node):
-    messagebox.showerror("Erreur", "Pas encore implémenté") # à implémenter : vérifier que l'utilisateur est l'auteur du node, puis proposer une confirmation pour supprimer le node, puis supprimer le node dans la base de données et rafraîchir l'affichage du mindmap
+    if not check_auth():
+        messagebox.showerror("Erreur", "Vous devez être connecté pour supprimer un nœud.")
+        return
+    if Session.id != node['author_id']:
+        messagebox.showerror("Erreur", "Vous n'êtes pas l'auteur de ce nœud, vous ne pouvez pas le supprimer.")
+        return
+    
+    if messagebox.askyesno("Confirmation", f"Voulez-vous vraiment supprimer le nœud '{node['text']}' et tous ses enfants ?"):
+        delete_node(node['id'], db_mode)
+        refresh_mindmap()
 
 # propose d'insérer un nouveau node en dessous du node sélectionné (le nouveau node aura comme parent le node sélectionné)
 def insert_below(node):
-    messagebox.showerror("Erreur", "Pas encore implémenté") # à implémenter : proposer une fenêtre de saisie pour insérer le texte du nouveau node, puis insérer le node dans la base de données et rafraîchir l'affichage du mindmap
+    if not check_auth():
+        messagebox.showerror("Erreur", "Vous devez être connecté pour ajouter un nœud.")
+        return
+    
+    new_text = simpledialog.askstring("Nouveau nœud", "Texte du nœud :")
+    if new_text and new_text.strip():
+        insert_node(current_map_id, node['id'], Session.id, new_text.strip(), node['level'] + 1, db_mode)
+        refresh_mindmap()
 
 
 # Permet de changer le mode de la base de données (local ou remote) et met à jour la variable globale db_mode
@@ -205,8 +300,7 @@ def set_db_mode(mode):
     global db_mode
     if (mode != db_mode): # éviter de faire un logout inutile qui ferait perdre la connexion à l'utilisateur
         db_mode = mode
-        #Session.logout()  # forcer le logout pour éviter les incohérences
-        lbl_user.config(text="Non connecté")
+        logout()  # forcer le logout pour éviter les incohérences
         lbl_db_mode.config(text=f"Mode DB: {db_mode}", bg="red" if db_mode == "remote" else "green", fg="white")
         display_maps()  # rafraîchir l'affichage des maps pour éviter les incohérences
 

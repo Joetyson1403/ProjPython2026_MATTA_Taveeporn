@@ -40,10 +40,11 @@ def node_bubble_height(text):
 
 # -------- Fonction principale --------
 
-def display_mindmap_radial(frame, nodes):
+def display_mindmap_radial(frame, nodes, on_node_right_click=None):
     """
     Affiche un mindmap en mode radial (étoile) dans le frame tkinter donné.
     nodes : liste de dictionnaires avec les clés 'id', 'parent_id', 'text', 'color'.
+    on_node_right_click : fonction de callback appelée lors d'un clic droit sur un nœud.
     """
 
     # --- Création du conteneur avec Canvas et Scrollbars ---
@@ -181,19 +182,24 @@ def display_mindmap_radial(frame, nodes):
         h = node_bubble_height(text)
 
         # Dessin de l'ovale (largeur fixe, hauteur variable selon le texte)
-        canvas.create_oval(
+        item_oval = canvas.create_oval(
             x - NODE_WIDTH, y - h,
             x + NODE_WIDTH, y + h,
             fill=color, outline="black"
         )
         # Texte avec retour à la ligne automatique (wraplength = width en pixels)
-        canvas.create_text(
+        item_text = canvas.create_text(
             x, y,
             text=text,
             font=("Arial", 9, "bold"),
             justify="center",
             width=NODE_WIDTH * 2 - 10  # largeur max avant retour à la ligne
         )
+
+        # Si une fonction de callback pour le clic droit est fournie, on l'attache
+        if on_node_right_click:
+            canvas.tag_bind(item_oval, "<Button-3>", lambda e, n=node: on_node_right_click(e, n))
+            canvas.tag_bind(item_text, "<Button-3>", lambda e, n=node: on_node_right_click(e, n))
 
     # --- Centrage automatique sur la racine au démarrage ---
     # L'événement <Map> est déclenché quand le canvas devient visible

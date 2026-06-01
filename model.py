@@ -50,8 +50,59 @@ def get_users(db_mode):
 def get_all_nodes(db_mode):
     return fetch_all("select map_id, parent_id, author_id, text, level from nodes", None, db_mode)
 
+def update_map(map_id, new_title, db_mode="local"):
+    db = get_connection(db_mode)
+    cursor = db.cursor()
+    cursor.execute("UPDATE maps SET title=%s WHERE id=%s", (new_title, map_id))
+    db.commit()
+    db.close()
+
+def delete_map(map_id, db_mode="local"):
+    db = get_connection(db_mode)
+    cursor = db.cursor()
+    cursor.execute("DELETE FROM maps WHERE id=%s", (map_id,))
+    db.commit()
+    db.close()
+
+def insert_map(title, author_id, db_mode="local"):
+    db = get_connection(db_mode)
+    cursor = db.cursor()
+    cursor.execute(
+        "INSERT INTO maps (title, author_id) VALUES (%s, %s)",
+        (title, author_id)
+    )
+    db.commit()
+    new_id = cursor.lastrowid
+    db.close()
+    return new_id
+
 # fonctions pour insérer, mettre à jour et supprimer des maps et des nodes
+def update_node(node_id, new_text, db_mode="local"):
+    db = get_connection(db_mode)
+    cursor = db.cursor()
+    cursor.execute("UPDATE nodes SET text=%s WHERE id=%s", (new_text, node_id))
+    db.commit()
+    db.close()
+
+def delete_node(node_id, db_mode="local"):
+    db = get_connection(db_mode)
+    cursor = db.cursor()
+    cursor.execute("DELETE FROM nodes WHERE id=%s", (node_id,))
+    db.commit()
+    db.close()
+
 # fonction pour insérer un node (retourne l'id du node créé)
+def insert_node(map_id, parent_id, author_id, text, level, db_mode="local"):
+    db = get_connection(db_mode)
+    cursor = db.cursor()
+    cursor.execute(
+        "INSERT INTO nodes (map_id, parent_id, author_id, text, level) VALUES (%s, %s, %s, %s, %s)",
+        (map_id, parent_id, author_id, text, level)
+    )
+    db.commit()
+    new_id = cursor.lastrowid
+    db.close()
+    return new_id
 
 # fonction pour vérifier les identifiants de connexion d'un utilisateur (retourne les infos de l'utilisateur si ok, sinon None)
 def check_login(pseudo, password, db_mode="local"):
